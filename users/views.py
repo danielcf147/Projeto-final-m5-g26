@@ -13,7 +13,6 @@ class UserView(CreateAPIView):
 
 
 class UserDetailView(RetrieveUpdateDestroyAPIView):
-
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAccountOwner]
 

@@ -1,8 +1,12 @@
 from rest_framework import serializers
 from .models import Followers
+import ipdb
 
 
-class FollowersSerializer(serializers.ModelSerializer):
+class FollowerSerializer(serializers.ModelSerializer):
+    def create(self, validated_data: dict) -> Followers:
+        return Followers.objects.create(**validated_data)
+
     class Meta:
         model = Followers
         fields = ["id", "user_id", "user_follow_id"]
