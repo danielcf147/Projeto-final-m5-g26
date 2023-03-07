@@ -20,7 +20,7 @@ class Publication(models.Model):
         "users.User", on_delete=models.CASCADE, related_name="publications"
     )
     comments = models.ManyToManyField(
-        "users.User", through="Comment", related_name="comment"
+        "users.User", through="publications.Comment", related_name="comment"
     )
 
 
