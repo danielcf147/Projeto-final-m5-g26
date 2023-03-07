@@ -11,6 +11,13 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
+import os
+import dotenv
+
+dotenv.load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,19 +36,22 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
-
-INSTALLED_APPS = [
+DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "rest_framework",
-    "users",
-    "publications",
-    "followers",
 ]
+
+THIRD_PARTY_APPS = [
+    "rest_framework",
+]
+
+MY_APPS = ["users", "publications", "followers"]
+
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + MY_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -81,7 +91,15 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
-    }
+    },
+    # "default": {
+    #     "ENGINE": "django.db.backends.postgresql",
+    #     "NAME": os.getenv("PGDATABASE"),
+    #     "USER": os.getenv("PGUSER"),
+    #     "PASSWORD": os.getenv("PGPASSWORD"),
+    #     "HOST": os.getenv("PGHOST"),
+    #     "PORT": os.getenv("PGPORT"),
+    # },
 }
 
 
@@ -103,6 +121,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
