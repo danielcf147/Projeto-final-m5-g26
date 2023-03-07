@@ -1,3 +1,6 @@
 from django.shortcuts import render
+from .models import Followers
 
-# Create your views here.
+
+class FollowerView:
+    ...
