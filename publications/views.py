@@ -2,13 +2,13 @@ from rest_framework.views import APIView, status, Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Publication, Comment
 from .serializers import PublicationSerializer, CommentSerializer
-from .permissions import IsAccountOwner
+from .permissions import IsAccountOwner, isAuthenticated
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 
 
 class PublicationView(ListCreateAPIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAccountOwner]
+    permission_classes = [isAuthenticated, IsAccountOwner]
 
     queryset = Publication.objects.all()
     serializer_class = PublicationSerializer

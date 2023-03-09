@@ -14,6 +14,10 @@ class Comment(models.Model):
 
 
 class Publication(models.Model):
+    class AcessChoices(models.TextChoices):
+        DEFAULT = "public"
+        PRIVATE = "private"
+
     post_photo = models.CharField(null=True, max_length=500)
     text = models.TextField()
     user = models.ForeignKey(
@@ -21,6 +25,11 @@ class Publication(models.Model):
     )
     comments = models.ManyToManyField(
         "users.User", through="publications.Comment", related_name="comment"
+    )
+    acess_permission = models.CharField(
+        max_length=7,
+        choices=AcessChoices.choices,
+        default=AcessChoices.DEFAULT,
     )
 
 
