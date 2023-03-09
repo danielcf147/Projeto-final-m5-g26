@@ -48,6 +48,7 @@ class CommentDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = CommentSerializer
 
 class CommentLikeView(View):
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
         comment_id = kwargs.get("pk")
