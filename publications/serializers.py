@@ -7,7 +7,7 @@ class PublicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Publication
-        fields = ["id", "post_photo", "text", "user_id", "comments"]
+        fields = ["id", "post_photo", "text", "user_id", "comments", "acess_permission"]
         extra_kwargs = {
             "id": {"read_only": True},
             "comments": {"read_only": True},
