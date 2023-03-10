@@ -8,6 +8,10 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from publications.models import Comment, Like
+from friendships.models import Friendship
+from users.models import User
+import ipdb
+from django.db.models.query import QuerySet
 
 
 class PublicationView(ListCreateAPIView):
@@ -23,21 +27,23 @@ class PublicationView(ListCreateAPIView):
     def get_queryset(self):
         if self.request.user.is_authenticated:
 
-            return Publication.objects.all()
+            user = self.request.user
+            friendships = Friendship.objects.filter(user_id=user.id)
+            friends = [friendship.user_friendship for friendship in friendships]
+            publications = Publication.objects.filter(user__in=friends)
+            publications_public = Publication.objects.filter(
+                acess_permission=Publication.AcessChoices.DEFAULT
+            )
+            publications_list = list(publications) + list(publications_public)
+
+            publications_queryset = QuerySet(model=Publication)
+            publications_queryset._result_cache = publications_list
+
+            return publications_queryset
         else:
             return Publication.objects.filter(
                 acess_permission=Publication.AcessChoices.DEFAULT
             )
-
-    # def get_queryset(self):
-    #     user = self.request.user
-    #     if user.is_authenticated:
-    #         following_users = user.following.all()
-    #         return Publication.objects.filter(
-    #             author__in=following_users
-    #         ) | Publication.objects.filter(is_public=True)
-    #     else:
-    #         return Publication.objects.filter(is_public=True)
 
 
 class PublicationDetailView(RetrieveUpdateDestroyAPIView):
@@ -56,7 +62,7 @@ class CommentView(ListCreateAPIView):
     serializer_class = CommentSerializer
 
     def perform_create(self, serializer):
-        # ipdb.set_trace()
+
         serializer.save(user_id=self.request.user.id, publication_id=self.kwargs["pk"])
 
 
