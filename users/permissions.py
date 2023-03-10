@@ -9,3 +9,8 @@ class IsAccountOwnerOrSuperUser(permissions.BasePermission):
         return request.user.is_authenticated and (
             obj == request.user or request.user.is_superuser
         )
+
+
+class IsSuperUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_superuser
