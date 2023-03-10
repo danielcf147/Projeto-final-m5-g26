@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from publications.models import Comment, Like
 
+
 class PublicationView(ListCreateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [isAuthenticated, IsAccountOwner]
@@ -18,6 +19,25 @@ class PublicationView(ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user_id=self.request.user.id)
+
+    def get_queryset(self):
+        if self.request.user.is_authenticated:
+
+            return Publication.objects.all()
+        else:
+            return Publication.objects.filter(
+                acess_permission=Publication.AcessChoices.DEFAULT
+            )
+
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     if user.is_authenticated:
+    #         following_users = user.following.all()
+    #         return Publication.objects.filter(
+    #             author__in=following_users
+    #         ) | Publication.objects.filter(is_public=True)
+    #     else:
+    #         return Publication.objects.filter(is_public=True)
 
 
 class PublicationDetailView(RetrieveUpdateDestroyAPIView):
@@ -47,6 +67,7 @@ class CommentDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
 
+
 class CommentLikeView(View):
     authentication_classes = [JWTAuthentication]
 
@@ -56,7 +77,9 @@ class CommentLikeView(View):
         user = request.user
 
         if Like.objects.filter(comment=comment, user=user).exists():
-            return JsonResponse({"success": False, "error": "You already liked this comment"})
+            return JsonResponse(
+                {"success": False, "error": "You already liked this comment"}
+            )
 
         Like.objects.create(comment=comment, user=user)
         return JsonResponse({"success": True})
