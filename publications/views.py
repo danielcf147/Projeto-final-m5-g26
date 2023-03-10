@@ -22,7 +22,6 @@ class PublicationView(ListCreateAPIView):
 
     def get_queryset(self):
         if self.request.user.is_authenticated:
-
             return Publication.objects.all()
         else:
             return Publication.objects.filter(
