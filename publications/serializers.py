@@ -28,7 +28,7 @@ class CommentSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     class Meta:
         model = Comment
-        fields = ["id", "comment", "user_id", "publication_id"]
+        fields = ["id", "comment", "user_id", "publication_id", "created_at"]
         extra_kwargs = {
             "id": {"read_only": True},
             "publication_id": {"read_only": True},
