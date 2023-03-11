@@ -11,8 +11,13 @@ from django.http import JsonResponse
 from publications.models import Comment, Like
 from friendships.models import Friendship
 from users.models import User
+<<<<<<< HEAD
+import ipdb
+from django.db.models.query import QuerySet
+=======
 from django.db.models.query import QuerySet
 from rest_framework.exceptions import PermissionDenied
+>>>>>>> 51b4cfd1e50d7184176b95471bf7110e51ac0f4a
 
 
 class PublicationView(ListCreateAPIView):
@@ -27,7 +32,24 @@ class PublicationView(ListCreateAPIView):
 
     def get_queryset(self):
         if self.request.user.is_authenticated:
+<<<<<<< HEAD
+
+            user = self.request.user
+            friendships = Friendship.objects.filter(user_id=user.id)
+            friends = [friendship.user_friendship for friendship in friendships]
+            publications = Publication.objects.filter(user__in=friends)
+            publications_public = Publication.objects.filter(
+                acess_permission=Publication.AcessChoices.DEFAULT
+            )
+            publications_list = list(publications) + list(publications_public)
+
+            publications_queryset = QuerySet(model=Publication)
+            publications_queryset._result_cache = publications_list
+
+            return publications_queryset
+=======
             return Publication.objects.all()
+>>>>>>> 51b4cfd1e50d7184176b95471bf7110e51ac0f4a
         else:
             return Publication.objects.filter(
                 acess_permission=Publication.AcessChoices.DEFAULT
