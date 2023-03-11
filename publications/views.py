@@ -1,3 +1,4 @@
+from datetime import timezone
 from rest_framework.views import APIView, status, Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Publication, Comment
@@ -8,6 +9,10 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from publications.models import Comment, Like
+from friendships.models import Friendship
+from users.models import User
+from django.db.models.query import QuerySet
+from rest_framework.exceptions import PermissionDenied
 
 
 class PublicationView(ListCreateAPIView):
@@ -28,16 +33,6 @@ class PublicationView(ListCreateAPIView):
                 acess_permission=Publication.AcessChoices.DEFAULT
             )
 
-    # def get_queryset(self):
-    #     user = self.request.user
-    #     if user.is_authenticated:
-    #         following_users = user.following.all()
-    #         return Publication.objects.filter(
-    #             author__in=following_users
-    #         ) | Publication.objects.filter(is_public=True)
-    #     else:
-    #         return Publication.objects.filter(is_public=True)
-
 
 class PublicationDetailView(RetrieveUpdateDestroyAPIView):
     authentication_classes = [JWTAuthentication]
@@ -55,16 +50,48 @@ class CommentView(ListCreateAPIView):
     serializer_class = CommentSerializer
 
     def perform_create(self, serializer):
-        # ipdb.set_trace()
+
         serializer.save(user_id=self.request.user.id, publication_id=self.kwargs["pk"])
 
 
 class CommentDetailView(RetrieveUpdateDestroyAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAccountOwner]
-
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        friends = user.user_friendship.all()
+
+        queryset = Comment.objects.filter(
+            publication__acess_permission=Publication.AcessChoices.DEFAULT,
+        ).distinct()
+
+        private_pub_query = Comment.objects.filter(
+            publication__acess_permission=Publication.AcessChoices.PRIVATE,
+            publication__user=user,
+        ).distinct()
+
+        private_friends_pub_query = Comment.objects.filter(
+            publication__acess_permission=Publication.AcessChoices.PRIVATE,
+            publication__user__in=friends,
+        ).distinct()
+
+        queryset = queryset.union(private_pub_query, private_friends_pub_query)
+        return queryset
+
+    def perform_create(self, serializer):
+        publication_id = self.request.data.get("publication_id")
+        publication = Publication.objects.get(id=publication_id)
+
+        if publication.user != self.request.user:
+            raise PermissionDenied("You are not allowed to comment on this publication")
+
+        serializer.save(
+            author=self.request.user,
+            pub_date=timezone.now()
+        )
 
 
 class CommentLikeView(View):
@@ -82,3 +109,4 @@ class CommentLikeView(View):
 
         Like.objects.create(comment=comment, user=user)
         return JsonResponse({"success": True})
+
