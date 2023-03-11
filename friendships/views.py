@@ -78,6 +78,7 @@ class FriendshipView(
             instance._prefetched_objects_cache = {}
 
         instance.accepted = True
+        serializer.save()
         return Response(serializer.data)
 
     def perform_update(self, serializer):
