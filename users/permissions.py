@@ -4,7 +4,13 @@ from rest_framework.views import View
 import ipdb
 
 
-class IsAccountOwner(permissions.BasePermission):
+class IsAccountOwnerOrSuperUser(permissions.BasePermission):
     def has_object_permission(self, request, view: View, obj: User) -> bool:
-        ipdb.set_trace()
-        return request.user.is_authenticated and obj == request.user
+        return request.user.is_authenticated and (
+            obj == request.user or request.user.is_superuser
+        )
+
+
+class IsSuperUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_superuser

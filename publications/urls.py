@@ -6,4 +6,5 @@ urlpatterns = [
     path("publication/<int:pk>/", views.PublicationDetailView.as_view()),
     path("comment/<int:pk>/", views.CommentView.as_view()),
     path("comment/RUD/<int:pk>/", views.CommentDetailView.as_view()),
+    path("comment/<int:pk>/like/", views.CommentLikeView.as_view())
 ]
