@@ -64,18 +64,19 @@ class CommentDetailView(RetrieveUpdateDestroyAPIView):
         user = self.request.user
         friends = user.user_friendship.filter(is_following=True)
 
-        # Remover restrição de acesso para publicações DEFAULT
-        queryset = Comment.objects.filter(
-            publication__acess_permission__in=[Publication.AcessChoices.DEFAULT, Publication.AcessChoices.PUBLIC],
-        ).distinct()
+        queryset = Comment.objects.none()
 
         private_pub_query = Comment.objects.filter(
             publication__acess_permission=Publication.AcessChoices.PRIVATE,
             publication__user=user,
+        ).filter(
+            publication__acess_permission__in=[Publication.AcessChoices.FRIENDS, Publication.AcessChoices.PRIVATE],
         ) | Comment.objects.filter(
             publication__acess_permission=Publication.AcessChoices.PRIVATE,
             publication__user__follower=user,
-        )
+        ).filter(
+            publication__acess_permission__in=[Publication.AcessChoices.FOLLOWERS, Publication.AcessChoices.PRIVATE],
+        ).distinct()
 
         private_friends_pub_query = Comment.objects.filter(
             publication__acess_permission=Publication.AcessChoices.PRIVATE,
