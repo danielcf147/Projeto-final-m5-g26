@@ -62,23 +62,28 @@ class CommentDetailView(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        friends = user.user_friendship.all()
+        friends = user.user_friendship.filter(is_following=True)
 
+        # Remover restrição de acesso para publicações DEFAULT
         queryset = Comment.objects.filter(
-            publication__acess_permission=Publication.AcessChoices.DEFAULT,
+            publication__acess_permission__in=[Publication.AcessChoices.DEFAULT, Publication.AcessChoices.PUBLIC],
         ).distinct()
 
         private_pub_query = Comment.objects.filter(
             publication__acess_permission=Publication.AcessChoices.PRIVATE,
             publication__user=user,
-        ).distinct()
+        ) | Comment.objects.filter(
+            publication__acess_permission=Publication.AcessChoices.PRIVATE,
+            publication__user__follower=user,
+        )
 
         private_friends_pub_query = Comment.objects.filter(
             publication__acess_permission=Publication.AcessChoices.PRIVATE,
             publication__user__in=friends,
+            publication__user__friendship__is_following=True,
         ).distinct()
 
-        queryset = queryset.union(private_pub_query, private_friends_pub_query)
+        queryset = queryset.union(private_pub_query, private_friends_pub_query).distinct()
         return queryset
 
     def perform_create(self, serializer):
@@ -92,8 +97,7 @@ class CommentDetailView(RetrieveUpdateDestroyAPIView):
             author=self.request.user,
             pub_date=timezone.now()
         )
-
-
+        
 class CommentLikeView(View):
     authentication_classes = [JWTAuthentication]
 
