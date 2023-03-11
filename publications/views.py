@@ -1,6 +1,8 @@
 from datetime import timezone
 from rest_framework.views import APIView, status, Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from followers.models import Followers
 from .models import Publication, Comment
 from .serializers import PublicationSerializer, CommentSerializer
 from .permissions import IsAccountOwner, isAuthenticated
@@ -79,31 +81,26 @@ class CommentView(ListCreateAPIView):
 class CommentDetailView(RetrieveUpdateDestroyAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAccountOwner]
-    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
 
     def get_queryset(self):
         user = self.request.user
-        friends = user.user_friendship.filter(is_following=True)
+        publication_owner = Publication.objects.filter(pk=self.kwargs["pk"]).values("user")
+        followers = Followers.objects.filter(user_id=user.id, user_follow_id=publication_owner[0]["user"])
 
         queryset = Comment.objects.none()
 
         private_pub_query = Comment.objects.filter(
-            publication__acess_permission=Publication.AcessChoices.PRIVATE,
-            publication__user=user,
-        ).filter(
-            publication__acess_permission__in=[Publication.AcessChoices.FRIENDS, Publication.AcessChoices.PRIVATE],
-        ) | Comment.objects.filter(
-            publication__acess_permission=Publication.AcessChoices.PRIVATE,
-            publication__user__follower=user,
-        ).filter(
-            publication__acess_permission__in=[Publication.AcessChoices.FOLLOWERS, Publication.AcessChoices.PRIVATE],
+            publicationacess_permission=Publication.AcessChoices.PRIVATE,
+            publicationuser=user,
+            publicationacess_permissionin=[Publication.AcessChoices.PRIVATE],
         ).distinct()
 
         private_friends_pub_query = Comment.objects.filter(
-            publication__acess_permission=Publication.AcessChoices.PRIVATE,
-            publication__user__in=friends,
-            publication__user__friendship__is_following=True,
+            publicationacess_permission=Publication.AcessChoices.PRIVATE,
+            publicationuserin=followers,
+            publicationuserfriendship__is_following=True,
+            publicationacess_permissionin=[Publication.AcessChoices.PRIVATE],
         ).distinct()
 
         queryset = queryset.union(private_pub_query, private_friends_pub_query).distinct()
@@ -113,7 +110,7 @@ class CommentDetailView(RetrieveUpdateDestroyAPIView):
         publication_id = self.request.data.get("publication_id")
         publication = Publication.objects.get(id=publication_id)
 
-        if publication.user != self.request.user:
+        if publication.user != self.request.user and not publication.user.user_friendship.filter(friend=self.request.user, is_following=True).exists():
             raise PermissionDenied("You are not allowed to comment on this publication")
 
         serializer.save(
