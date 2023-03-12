@@ -36,3 +36,14 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict) -> Comment:
         return Comment.objects.create(**validated_data)
+
+class LikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Like
+        fields = ["id", "user", "publication"]
+        extra_kwargs = {
+            "id": {"read_only": True},
+        }
+
+    def create(self, validated_data: dict) -> Like:
+        return Like.objects.create(**validated_data)

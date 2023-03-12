@@ -4,7 +4,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from followers.models import Followers
 from .models import Publication, Comment
-from .serializers import PublicationSerializer, CommentSerializer
+from .serializers import LikeSerializer, PublicationSerializer, CommentSerializer
 from .permissions import IsAccountOwner, isAuthenticated
 from rest_framework.generics import (
     ListAPIView,
@@ -183,18 +183,20 @@ class CommentLikeView(View):
             return JsonResponse({"success": True})
 
 
-class PublicacaoLikeView(View):
-    authentication_classes = [JWTAuthentication]
 
-    def post(self, request, *args, **kwargs):
-        publicacao_id = kwargs.get("pk")
-        publicacao = get_object_or_404(Publication, pk=publicacao_id)
+class PublicationLikeView(APIView):
+    authentication_classes = [JWTAuthentication]
+    serializer_class = LikeSerializer
+
+    def post(self, request, pk):
+        publication = get_object_or_404(Publication, pk=pk)
         user = request.user
 
-        like_queryset = Like.objects.filter(publicacao=publicacao, user=user)
+        like_queryset = Like.objects.filter(publication=publication, user=user)
         if like_queryset.exists():
             like_queryset.delete()
             return JsonResponse({"success": True})
         else:
-            Like.objects.create(publicacao=publicacao, user=user)
-            return JsonResponse({"success": True})
+            like = Like.objects.create(publication=publication, user=user)
+            serializer = self.serializer_class(like, context={"publication": publication})
+            return Response(serializer.data)
