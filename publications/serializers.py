@@ -4,13 +4,23 @@ from .models import Publication, Comment, Like
 
 class PublicationSerializer(serializers.ModelSerializer):
     comments = serializers.SerializerMethodField()
+    likes = serializers.SerializerMethodField()
 
     class Meta:
         model = Publication
-        fields = ["id", "post_photo", "text", "user_id", "comments", "acess_permission"]
+        fields = [
+            "id",
+            "post_photo",
+            "text",
+            "user_id",
+            "comments",
+            "likes",
+            "acess_permission",
+        ]
         extra_kwargs = {
             "id": {"read_only": True},
             "comments": {"read_only": True},
+            "likes": {"read_only": True},
         }
 
     def create(self, validated_data: dict) -> Publication:
@@ -23,8 +33,13 @@ class PublicationSerializer(serializers.ModelSerializer):
             for comment in comments
         ]
 
+    def get_likes(self, obj):
+        likes = obj.likes_users.all()
+        return [{"id": like.id, "user_id": like.user_id} for like in likes]
+
 
 class CommentSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Comment
         fields = ["id", "comment", "user_id", "publication_id", "created_at"]
@@ -37,6 +52,7 @@ class CommentSerializer(serializers.ModelSerializer):
     def create(self, validated_data: dict) -> Comment:
         return Comment.objects.create(**validated_data)
 
+
 class LikeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Like
@@ -47,15 +63,3 @@ class LikeSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict) -> Like:
         return Like.objects.create(**validated_data)
-    
-
-class LikeCommentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Like
-        fields = ["id", "user", "comment"]
-        extra_kwargs = {
-            "id": {"read_only": True},
-        }
-
-    def create(self, validated_data: dict) -> Like:
-        return Like.objects.create(**validated_data)    

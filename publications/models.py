@@ -26,6 +26,9 @@ class Publication(models.Model):
     comments = models.ManyToManyField(
         "users.User", through="publications.Comment", related_name="comment"
     )
+    likes = models.ManyToManyField(
+        "users.User", through="publications.Like", related_name="like"
+    )
     acess_permission = models.CharField(
         max_length=7,
         choices=AcessChoices.choices,
