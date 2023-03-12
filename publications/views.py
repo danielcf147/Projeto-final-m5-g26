@@ -157,16 +157,26 @@ class CommentDetailView(CreateAPIView, RetrieveUpdateDestroyAPIView):
         publication_id = self.kwargs.get("pk")
         publication = Publication.objects.get(id=publication_id)
 
-        if publication.user != self.request.user:
-            raise PermissionDenied("You are not allowed to comment on this publication")
+        if publication.acess_permission == Publication.AcessChoices.PRIVATE:
+            user = self.request.user
+            publication_owner = publication.user
+            is_friend = Friendship.objects.filter(
+                user=user, user_friendship=publication_owner, accepted=True
+            ).exists()
+            is_follower = Followers.objects.filter(
+                user_id=publication_owner.id, user_follow=user
+            ).exists()
 
-        serializer.save(
-            author=self.request.user, publication=publication, pub_date=timezone.now()
-        )
+            if not is_friend and not is_follower:
+                raise PermissionDenied(
+                    "You are not allowed to comment on this publication"
+                )
 
+        serializer.save(user=self.request.user, publication=publication)
 
 class CommentLikeView(View):
     authentication_classes = [JWTAuthentication]
+    serializer_class = LikeSerializer
 
     def post(self, request, *args, **kwargs):
         comment_id = kwargs.get("pk")
@@ -178,7 +188,7 @@ class CommentLikeView(View):
             like_queryset.delete()
             return JsonResponse({"success": True})
         else:
-            Like.objects.create(comment=comment, user=user)
+            Like.objects.create(comment=comment, user=user)           
             return JsonResponse({"success": True})
 
 
