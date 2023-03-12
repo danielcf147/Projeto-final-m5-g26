@@ -15,7 +15,7 @@ from rest_framework.generics import (
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
-from publications.models import Comment, Like , Publication
+from publications.models import Comment, Like, Publication
 from friendships.models import Friendship
 from users.models import User
 import ipdb
@@ -116,7 +116,6 @@ class CommentView(ListCreateAPIView):
     serializer_class = CommentSerializer
 
     def perform_create(self, serializer):
-
         serializer.save(user_id=self.request.user.id, publication_id=self.kwargs["pk"])
 
 
@@ -183,7 +182,6 @@ class CommentLikeView(View):
             return JsonResponse({"success": True})
 
 
-
 class PublicationLikeView(APIView):
     authentication_classes = [JWTAuthentication]
     serializer_class = LikeSerializer
@@ -195,8 +193,10 @@ class PublicationLikeView(APIView):
         like_queryset = Like.objects.filter(publication=publication, user=user)
         if like_queryset.exists():
             like_queryset.delete()
-            return JsonResponse({"success": True})
+            return JsonResponse({"Dislike": True})
         else:
             like = Like.objects.create(publication=publication, user=user)
-            serializer = self.serializer_class(like, context={"publication": publication})
+            serializer = self.serializer_class(
+                like, context={"publication": publication}
+            )
             return Response(serializer.data)
