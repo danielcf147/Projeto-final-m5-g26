@@ -111,11 +111,12 @@ class CommentLikeView(View):
         comment = get_object_or_404(Comment, pk=comment_id)
         user = request.user
 
-        if Like.objects.filter(comment=comment, user=user).exists():
-            return JsonResponse(
-                {"success": False, "error": "You already liked this comment"}
-            )
+        like_queryset = Like.objects.filter(comment=comment, user=user)
+        if like_queryset.exists():
+            like_queryset.delete()
+            return JsonResponse({"success": True})
+        else:
+            Like.objects.create(comment=comment, user=user)
+            return JsonResponse({"success": True})
 
-        Like.objects.create(comment=comment, user=user)
-        return JsonResponse({"success": True})
 
