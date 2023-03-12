@@ -25,13 +25,13 @@ class PublicationSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     class Meta:
         model = Comment
         fields = ["id", "comment", "user_id", "publication_id", "created_at"]
         extra_kwargs = {
             "id": {"read_only": True},
             "publication_id": {"read_only": True},
+            "created_at":{"read_only":True}
         }
 
     def create(self, validated_data: dict) -> Comment:
@@ -47,3 +47,15 @@ class LikeSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict) -> Like:
         return Like.objects.create(**validated_data)
+    
+
+class LikeCommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Like
+        fields = ["id", "user", "comment"]
+        extra_kwargs = {
+            "id": {"read_only": True},
+        }
+
+    def create(self, validated_data: dict) -> Like:
+        return Like.objects.create(**validated_data)    
