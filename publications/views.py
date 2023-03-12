@@ -15,7 +15,7 @@ from rest_framework.generics import (
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
-from publications.models import Comment, Like
+from publications.models import Comment, Like , Publication
 from friendships.models import Friendship
 from users.models import User
 import ipdb
@@ -182,4 +182,19 @@ class CommentLikeView(View):
             Like.objects.create(comment=comment, user=user)
             return JsonResponse({"success": True})
 
-       
+
+class PublicacaoLikeView(View):
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        publicacao_id = kwargs.get("pk")
+        publicacao = get_object_or_404(Publication, pk=publicacao_id)
+        user = request.user
+
+        like_queryset = Like.objects.filter(publicacao=publicacao, user=user)
+        if like_queryset.exists():
+            like_queryset.delete()
+            return JsonResponse({"success": True})
+        else:
+            Like.objects.create(publicacao=publicacao, user=user)
+            return JsonResponse({"success": True})
