@@ -6,20 +6,27 @@ from followers.models import Followers
 from .models import Publication, Comment
 from .serializers import PublicationSerializer, CommentSerializer
 from .permissions import IsAccountOwner, isAuthenticated
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView,CreateAPIView
+from rest_framework.generics import (
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+    CreateAPIView,
+)
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from publications.models import Comment, Like
 from friendships.models import Friendship
 from users.models import User
+import ipdb
 from django.db.models.query import QuerySet
 from rest_framework.exceptions import PermissionDenied
+from django.db.models import Q
 
 
 class PublicationView(ListCreateAPIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [isAuthenticated, IsAccountOwner]
+    permission_classes = [isAuthenticated]
 
     queryset = Publication.objects.all()
     serializer_class = PublicationSerializer
@@ -29,11 +36,68 @@ class PublicationView(ListCreateAPIView):
 
     def get_queryset(self):
         if self.request.user.is_authenticated:
-            return Publication.objects.all()
+            user = self.request.user
+            friendships = Friendship.objects.filter(
+                user_id=user.id,
+                accepted=True,
+            )
+            friends = []
+            for friendship in friendships:
+                if friendship.user_friendship == user:
+                    friends.append(friendship.user)
+                else:
+                    friends.append(friendship.user_friendship)
+            publications = Publication.objects.filter(
+                user__in=friends,
+                acess_permission=Publication.AcessChoices.PRIVATE,
+            )
+            publications_public = Publication.objects.filter(
+                acess_permission=Publication.AcessChoices.DEFAULT
+            )
+            publications_list = list(publications) + list(publications_public)
+
+            publications_queryset = QuerySet(model=Publication)
+            publications_queryset._result_cache = publications_list
+
+            return publications_queryset
         else:
             return Publication.objects.filter(
                 acess_permission=Publication.AcessChoices.DEFAULT
             )
+
+
+class TimeLinePublicationView(ListAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAccountOwner]
+
+    queryset = Publication.objects.all()
+    serializer_class = PublicationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        friendships = Friendship.objects.filter(
+            Q(user_id=user) | Q(user_friendship_id=user),
+            accepted=True,
+        )
+        followerships = Followers.objects.filter(user_id=user)
+        friends = []
+        for friendship in friendships:
+            if friendship.user_friendship == user:
+                friends.append(friendship.user)
+            else:
+                friends.append(friendship.user_friendship)
+        followers = [followership.user_follow for followership in followerships]
+        publications = Publication.objects.filter(user__in=friends)
+        publications_public = Publication.objects.filter(
+            user__in=followers,
+            acess_permission=Publication.AcessChoices.DEFAULT,
+        )
+        publications_list = list(publications) + list(publications_public)
+
+        publications_queryset = QuerySet(model=Publication)
+        publications_queryset._result_cache = publications_list
+
+        return publications_queryset
 
 
 class PublicationDetailView(RetrieveUpdateDestroyAPIView):
@@ -102,7 +166,6 @@ class CommentDetailView(CreateAPIView, RetrieveUpdateDestroyAPIView):
         )
 
 
-        
 class CommentLikeView(View):
     authentication_classes = [JWTAuthentication]
 
@@ -119,4 +182,4 @@ class CommentLikeView(View):
             Like.objects.create(comment=comment, user=user)
             return JsonResponse({"success": True})
 
-
+       
