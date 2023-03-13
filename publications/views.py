@@ -183,6 +183,29 @@ class CommentDetailView(CreateAPIView, DestroyAPIView, UpdateAPIView, ListAPIVie
 
         serializer.save(user=self.request.user, publication=publication)
 
+    def update(self, request, *args, **kwargs):
+        comment_id = kwargs.get("pk")
+        comment = get_object_or_404(Comment, id=comment_id)
+        if comment.user != request.user:
+            raise PermissionDenied(
+                "Você não tem permissão para atualizar este comentário."
+            )
+
+        serializer = self.get_serializer(comment, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        # ipdb.set_trace()
+        # pegar o id do comentário passado nao parametro
+        # checar se ele existe
+        # veriicar se o usuario é o dono do comentário
+        # ver se o body da requsisição está validado com o serializer
+        # fazer alterações
+        # salvar
+
 
 class CommentLikeView(View):
     authentication_classes = [JWTAuthentication]
