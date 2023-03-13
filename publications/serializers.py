@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Publication, Comment, Like
+import ipdb
 
 
 class PublicationSerializer(serializers.ModelSerializer):
@@ -39,14 +40,12 @@ class PublicationSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Comment
-        fields = ["id", "comment", "user_id", "publication_id", "created_at"]
+        fields = ["id", "comment", "user_id", "publication_id"]
         extra_kwargs = {
             "id": {"read_only": True},
             "publication_id": {"read_only": True},
-            "created_at":{"read_only":True}
         }
 
     def create(self, validated_data: dict) -> Comment:
@@ -59,6 +58,8 @@ class LikeSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "publication"]
         extra_kwargs = {
             "id": {"read_only": True},
+            "user": {"read_only": True},
+            "publication": {"read_only": True},
         }
 
     def create(self, validated_data: dict) -> Like:
