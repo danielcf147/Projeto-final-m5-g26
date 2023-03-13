@@ -187,9 +187,7 @@ class CommentDetailView(CreateAPIView, DestroyAPIView, UpdateAPIView, ListAPIVie
         comment_id = kwargs.get("pk")
         comment = get_object_or_404(Comment, id=comment_id)
         if comment.user != request.user:
-            raise PermissionDenied(
-                "Você não tem permissão para atualizar este comentário."
-            )
+            raise PermissionDenied("You don't have permission to update this comment.")
 
         serializer = self.get_serializer(comment, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -198,13 +196,22 @@ class CommentDetailView(CreateAPIView, DestroyAPIView, UpdateAPIView, ListAPIVie
 
     def perform_update(self, serializer):
         serializer.save()
-        # ipdb.set_trace()
-        # pegar o id do comentário passado nao parametro
-        # checar se ele existe
-        # veriicar se o usuario é o dono do comentário
-        # ver se o body da requsisição está validado com o serializer
-        # fazer alterações
-        # salvar
+
+    def destroy(self, request, *args, **kwargs):
+        comment = get_object_or_404(Comment, pk=self.kwargs.get("pk", None))
+        publication_id = comment.publication_id
+        publication = get_object_or_404(Publication, id=publication_id)
+        owner = publication.user
+
+        if request.user == owner:
+            comment.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        if comment.user != request.user:
+            raise PermissionDenied("You don't have permission to delete this comment.")
+
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CommentLikeView(View):
