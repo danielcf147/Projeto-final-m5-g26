@@ -11,7 +11,10 @@ from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveUpdateDestroyAPIView,
     CreateAPIView,
+    UpdateAPIView,
+    DestroyAPIView,
 )
+from rest_framework.mixins import CreateModelMixin
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
@@ -22,6 +25,11 @@ import ipdb
 from django.db.models.query import QuerySet
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
+from django.http import Http404
+from django.core.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError
+
+# import followers.models from Followers
 
 
 class PublicationView(ListCreateAPIView):
@@ -119,39 +127,40 @@ class CommentView(ListCreateAPIView):
         serializer.save(user_id=self.request.user.id, publication_id=self.kwargs["pk"])
 
 
-class CommentDetailView(CreateAPIView, RetrieveUpdateDestroyAPIView):
+class CommentDetailView(CreateAPIView, DestroyAPIView, UpdateAPIView, ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAccountOwner]
     serializer_class = CommentSerializer
 
     def get_queryset(self):
+        publication_id = self.kwargs.get("pk")
+        publication = get_object_or_404(Publication, id=publication_id)
         user = self.request.user
-        publication_owner = Publication.objects.filter(pk=self.kwargs["pk"]).values(
-            "user"
-        )
-        followers = Followers.objects.filter(
-            user_id=user.id, user_follow_id=publication_owner[0]["user"]
-        )
+        owner = publication.user
 
-        queryset = Comment.objects.none()
+        if user == owner:
+            queryset = Comment.objects.filter(publication_id=publication_id)
+            return queryset
 
-        private_pub_query = Comment.objects.filter(
-            publicationacess_permission=Publication.AcessChoices.PRIVATE,
-            publicationuser=user,
-            publicationacess_permissionin=[Publication.AcessChoices.PRIVATE],
-        ).distinct()
-
-        private_friends_pub_query = Comment.objects.filter(
-            publicationacess_permission=Publication.AcessChoices.PRIVATE,
-            publicationuserin=followers,
-            publicationuserfriendship__is_following=True,
-            publicationacess_permissionin=[Publication.AcessChoices.PRIVATE],
-        ).distinct()
-
-        queryset = queryset.union(
-            private_pub_query, private_friends_pub_query
-        ).distinct()
-        return queryset
+        if publication.acess_permission == Publication.AcessChoices.PRIVATE:
+            if (
+                Friendship.objects.filter(
+                    user=user, user_friendship_id=owner, accepted=True
+                )
+                or Friendship.objects.filter(
+                    user=owner, user_friendship_id=user, accepted=True
+                )
+                or Followers.objects.filter(user=user, user_follow_id=owner)
+            ):
+                queryset = Comment.objects.filter(publication_id=publication_id)
+                return queryset
+            else:
+                raise PermissionDenied(
+                    "This publication is private and you are not allowed to view it."
+                )
+        else:
+            queryset = Comment.objects.filter(publication_id=publication_id)
+            return queryset
 
     def perform_create(self, serializer):
         publication_id = self.kwargs.get("pk")
@@ -164,7 +173,7 @@ class CommentDetailView(CreateAPIView, RetrieveUpdateDestroyAPIView):
                 user=user, user_friendship=publication_owner, accepted=True
             ).exists()
             is_follower = Followers.objects.filter(
-                user_id=publication_owner.id, user_follow=user
+                user_follow=publication_owner, user=user
             ).exists()
 
             if not is_friend and not is_follower:
@@ -173,6 +182,37 @@ class CommentDetailView(CreateAPIView, RetrieveUpdateDestroyAPIView):
                 )
 
         serializer.save(user=self.request.user, publication=publication)
+
+    def update(self, request, *args, **kwargs):
+        comment_id = kwargs.get("pk")
+        comment = get_object_or_404(Comment, id=comment_id)
+        if comment.user != request.user:
+            raise PermissionDenied("You don't have permission to update this comment.")
+
+        serializer = self.get_serializer(comment, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        comment = get_object_or_404(Comment, pk=self.kwargs.get("pk", None))
+        publication_id = comment.publication_id
+        publication = get_object_or_404(Publication, id=publication_id)
+        owner = publication.user
+
+        if request.user == owner:
+            comment.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        if comment.user != request.user:
+            raise PermissionDenied("You don't have permission to delete this comment.")
+
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class CommentLikeView(View):
     authentication_classes = [JWTAuthentication]
@@ -188,25 +228,87 @@ class CommentLikeView(View):
             like_queryset.delete()
             return JsonResponse({"success": True})
         else:
-            Like.objects.create(comment=comment, user=user)           
+            Like.objects.create(comment=comment, user=user)
             return JsonResponse({"success": True})
 
 
-class PublicationLikeView(APIView):
+class PublicationLikeView(ListAPIView, CreateAPIView, DestroyAPIView, View):
     authentication_classes = [JWTAuthentication]
+    permission_classes = [isAuthenticated]
     serializer_class = LikeSerializer
 
-    def post(self, request, pk):
-        publication = get_object_or_404(Publication, pk=pk)
-        user = request.user
+    def perform_create(self, serializer):
+        publication_id = self.kwargs.get("pk")
+        user = self.request.user
+        publication = get_object_or_404(Publication, id=publication_id)
+        owner = publication.user
+        if user == owner:
+            return serializer.save(user=user, publication=publication)
 
-        like_queryset = Like.objects.filter(publication=publication, user=user)
-        if like_queryset.exists():
-            like_queryset.delete()
-            return JsonResponse({"Dislike": True})
+        if publication.acess_permission == Publication.AcessChoices.DEFAULT:
+            if Like.objects.filter(user=user, publication=publication).exists():
+                raise ValidationError(
+                    {"detail": "You have already liked this publication."}
+                )
+            else:
+                return serializer.save(user=user, publication=publication)
         else:
-            like = Like.objects.create(publication=publication, user=user)
-            serializer = self.serializer_class(
-                like, context={"publication": publication}
-            )
-            return Response(serializer.data)
+            if (
+                Friendship.objects.filter(
+                    user=user, user_friendship_id=owner, accepted=True
+                )
+                or Friendship.objects.filter(
+                    user=owner, user_friendship_id=user, accepted=True
+                )
+                or Followers.objects.filter(user=user, user_follow_id=owner)
+            ):
+                if Like.objects.filter(user=user, publication=publication).exists():
+                    raise ValidationError(
+                        {"detail": "You have already liked this publication."}
+                    )
+                else:
+                    return serializer.save(user=user, publication=publication)
+
+            else:
+                raise PermissionDenied(
+                    "This publication is private and you are not allowed to view it."
+                )
+
+    def destroy(self, request, *args, **kwargs):
+        like_id = kwargs.get("pk")
+        like = get_object_or_404(Like, id=like_id)
+        if like.user != request.user:
+            raise PermissionDenied("You do not have permission to perform this action.")
+
+        like.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get_queryset(self):
+        publication_id = self.kwargs.get("pk")
+        publication = get_object_or_404(Publication, id=publication_id)
+        user = self.request.user
+        owner = publication.user
+
+        if user == owner:
+            queryset = Like.objects.filter(publication_id=publication_id)
+            return queryset
+
+        if publication.acess_permission == Publication.AcessChoices.PRIVATE:
+            if (
+                Friendship.objects.filter(
+                    user=user, user_friendship_id=owner, accepted=True
+                )
+                or Friendship.objects.filter(
+                    user=owner, user_friendship_id=user, accepted=True
+                )
+                or Followers.objects.filter(user=user, user_follow_id=owner)
+            ):
+                queryset = Like.objects.filter(publication_id=publication_id)
+                return queryset
+            else:
+                raise PermissionDenied(
+                    "This publication is private and you are not allowed to view it."
+                )
+        else:
+            queryset = Like.objects.filter(publication_id=publication_id)
+            return queryset
